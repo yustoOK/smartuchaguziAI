@@ -7,7 +7,7 @@ import pandas as pd
 app = Flask(__name__)
 
 # Load model, scaler, and features
-model = load_model('fraud_detection_model.keras')
+model = load_model('fraud_model.keras')
 with open('scaler.pkl', 'rb') as f:
     scaler = pickle.load(f)
 with open('features.pkl', 'rb') as f:

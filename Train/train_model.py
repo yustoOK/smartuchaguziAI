@@ -172,7 +172,7 @@ def main():
     plot_performance(history, y_test, y_pred, y_pred_proba, report)
     
     # Save model in .keras format
-    model.save('fraud_detection_model.keras')
+    model.save('fraud_model.keras')
     
     # Save feature names
     with open('features.pkl', 'wb') as f:
