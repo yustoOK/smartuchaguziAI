@@ -22,6 +22,7 @@ The dataset is generated using a Python script (`generate_training_data`) with t
 - **Noise**: Variable noise (10–20%) added to numerical features.
 - **Correlations**: `vote_frequency` and `avg_time_between_votes` are inversely related.
 - **Edge Cases**: 5% of samples have randomly flipped `vpn_usage` or `location_flag`.
+- **Bug Fix**: Corrected a TypeError in `vote_time` calculation by converting NumPy integer to Python integer using `.item()` for fraudulent votes during odd hours.
 
 ## Features
 The dataset contains 13 features, including temporal, behavioral, and contextual attributes:
@@ -65,7 +66,7 @@ The dataset contains 13 features, including temporal, behavioral, and contextual
 
 7. **multiple_logins (integer)**:
    - Number of login sessions.
-   - Normal: Typically 1.
+   - Normal: Typically 1 (single session for all votes).
    - Fraud: 1–5.
    - Noise: 10% Gaussian noise.
 
@@ -107,6 +108,7 @@ The dataset contains 13 features, including temporal, behavioral, and contextual
 - **Feature Correlations**: `vote_frequency` and `avg_time_between_votes` are correlated; `votes_per_user` and `session_duration` reflect multiple votes.
 - **Realism**: Simulates university context with Tanzanian location flags and multiple-vote rules.
 - **Edge Cases**: Random flips ensure challenging cases.
+- **Updates**: Fixed TypeError in `vote_time` calculation; adjusted `multiple_logins` for normal users to typically 1.
 
 ## Usage Recommendations
 1. **Preprocessing**:

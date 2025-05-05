@@ -27,7 +27,7 @@ def generate_training_data(num_samples=1500000, fraud_ratio=0.03):
             fraud_type = np.random.choice(["bot", "coordinated", "proxy"], p=[0.5, 0.3, 0.2])
             vote_time = election_start + timedelta(seconds=np.random.uniform(0, 48*3600))
             if np.random.random() < 0.6:  # 60% chance of odd-hour fraud
-                vote_time = election_start + timedelta(hours=np.random.choice([0, 1, 2, 22, 23]))
+                vote_time = election_start + timedelta(hours=np.random.choice([0, 1, 2, 22, 23]).item())
         else:
             vote_hour = np.random.randint(8, 20)
             vote_time = election_start + timedelta(hours=vote_hour, minutes=np.random.randint(0, 60))
@@ -64,7 +64,7 @@ def generate_training_data(num_samples=1500000, fraud_ratio=0.03):
             vote_frequency = np.random.uniform(0.1, 0.3)
             vpn_usage = np.random.choice([0, 1], p=[0.9, 0.1])
             session_duration = np.random.uniform(60, 180)  # Covers multiple votes
-            multiple_logins = 1
+            multiple_logins = np.random.randint(1, 2)  # Typically 1
             location_flag = np.random.choice([0, 1], p=[0.95, 0.05])
         
         # Device/IP features
@@ -106,7 +106,7 @@ def generate_training_data(num_samples=1500000, fraud_ratio=0.03):
     df = pd.DataFrame(data, columns=columns)
     
     # Save to CSV
-    df.to_csv('C:\\Users\\yusto\\Desktop\\fraud_data_improved.csv', index=False)
+    df.to_csv('C:\\Users\\yusto\\Desktop\\fraud_data.csv', index=False)
     return df
 
 if __name__ == "__main__":
