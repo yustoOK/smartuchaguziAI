@@ -1,169 +1,182 @@
-import tensorflow as tf
-import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization, Add, Input
-from tensorflow.keras.models import Model
-import pickle
-from tensorflow.keras.utils import plot_model
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, roc_auc_score, roc_curve, confusion_matrix
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.optimizers import Adam
+import pickle
 
-# Preparation of training data
-def prepare_data(csv_file):
-    df = pd.read_csv(csv_file) #Path to csv file (Containing data)
+def load_and_preprocess_data(file_path):
+    # Load dataset
+    df = pd.read_csv(file_path)
     
-    # Extraction of numeric part of voter_id
-    df['voter_id_num'] = df['voter_id'].apply(lambda x: int(x.split('-')[2]))
+    # Select features
+    features = [
+        'time_diff', 'votes_per_user', 'avg_time_between_votes', 'vote_frequency',
+        'vpn_usage', 'multiple_logins', 'session_duration', 'location_flag'
+    ]
+    X = df[features]
+    y = df['label']
     
-    features = df[['time_diff', 'votes_per_user', 'voter_id_num', 
-                  'avg_time_between_votes', 'vote_frequency', 
-                  'vpn_usage', 'multiple_logins']].values
-    labels = df['label'].values.reshape(-1, 1)
+    # Normalize features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
     
-    X_train, X_test, y_train, y_test = train_test_split(
-        features, labels, test_size=0.2, random_state=42
+    # Save scaler
+    with open('scaler.pkl', 'wb') as f:
+        pickle.dump(scaler, f)
+    
+    # Split data: 70% train, 15% validation, 15% test
+    X_train, X_temp, y_train, y_temp = train_test_split(
+        X_scaled, y, test_size=0.3, random_state=42, stratify=y
+    )
+    X_val, X_test, y_val, y_test = train_test_split(
+        X_temp, y_temp, test_size=0.5, random_state=42, stratify=y_temp
     )
     
-    scaler = MinMaxScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    
-    return (X_train_scaled, y_train), (X_test_scaled, y_test), scaler
+    return X_train, X_val, X_test, y_train, y_val, y_test, features
 
-# Data augmentation
-def augment_data(X, y, noise_level=0.05):
-    X_aug = X.copy()
-    noise = np.random.normal(0, noise_level, X.shape)
-    X_aug = X_aug + noise
-    X_aug = np.clip(X_aug, 0, 1)  # Keep within normalized range
-    return X_aug, y
-
-# Residual block
-def residual_block(x, units):
-    shortcut = x
-    x = Dense(units, activation='relu')(x)
-    x = BatchNormalization()(x)
-    x = Dropout(0.3)(x)
-    x = Dense(units)(x)
-    if shortcut.shape[-1] != units:
-        shortcut = Dense(units)(shortcut)
-    x = Add()([shortcut, x])
-    x = tf.keras.layers.Activation('relu')(x)
-    return x
-
-# Creating a model
-def create_model(input_shape):
-    inputs = Input(shape=input_shape)
-    x = Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01))(inputs)
-    x = BatchNormalization()(x)
-    x = Dropout(0.3)(x)
+def build_model(input_dim):
+    model = Sequential([
+        Dense(128, activation='relu', input_dim=input_dim, kernel_regularizer='l2'),
+        BatchNormalization(),
+        Dropout(0.3),
+        Dense(64, activation='relu', kernel_regularizer='l2'),
+        BatchNormalization(),
+        Dropout(0.3),
+        Dense(32, activation='relu', kernel_regularizer='l2'),
+        BatchNormalization(),
+        Dropout(0.2),
+        Dense(1, activation='sigmoid')
+    ])
     
-    x = residual_block(x, 64)
-    x = residual_block(x, 32)
+    optimizer = Adam(learning_rate=0.001)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
     
-    x = Dense(16, activation='relu')(x)
-    x = BatchNormalization()(x)
-    x = Dropout(0.2)(x)
-    
-    outputs = Dense(1, activation='sigmoid')(x)
-    model = Model(inputs, outputs)
-    
-    # Learning rate schedule with warmup
-    initial_lr = 0.001
-    lr_schedule = tf.keras.optimizers.schedules.CosineDecay(
-        initial_lr, decay_steps=10000, alpha=0.01
-    )
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0)  # Gradient clipping
-    
-    model.compile(
-        optimizer=optimizer,
-        loss='binary_crossentropy',
-        metrics=['accuracy', tf.keras.metrics.AUC(name='auc')]
-    )
     return model
 
-# Train model
-def train_model(X_train, y_train, X_test, y_test):
-    model = create_model(input_shape=(X_train.shape[1],))
+def train_model(X_train, X_val, y_train, y_val):
+    class_weights = {0: 1.0, 1: 33.33}  # 1:33 ratio for 3% fraud
     
-    # Callbacks
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor='val_auc', mode='max', patience=15, restore_best_weights=True
+    early_stopping = EarlyStopping(
+        monitor='val_loss', patience=10, restore_best_weights=True
     )
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+    lr_scheduler = ReduceLROnPlateau(
         monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6
     )
     
-    # Augment training data
-    X_train_aug, y_train_aug = augment_data(X_train, y_train)
-    X_train_combined = np.vstack([X_train, X_train_aug])
-    y_train_combined = np.vstack([y_train, y_train_aug])
-    
+    model = build_model(input_dim=X_train.shape[1])
     history = model.fit(
-        X_train_combined, y_train_combined,
-        validation_data=(X_test, y_test),
+        X_train, y_train,
+        validation_data=(X_val, y_val),
         epochs=100,
-        batch_size=64,  # Larger batch for better gradient estimates
-        callbacks=[early_stopping, reduce_lr],
+        batch_size=256,
+        class_weight=class_weights,
+        callbacks=[early_stopping, lr_scheduler],
         verbose=1
     )
     
     return model, history
- 
 
-#Visualization of Model Architecture 
-model = create_model(input_shape=(X_train.shape[1],))
-plot_model(model, to_file="model_architecture.png", show_shapes=True, show_layer_names=True)
+def evaluate_model(model, X_test, y_test):
+    y_pred_proba = model.predict(X_test)
+    y_pred = (y_pred_proba > 0.5).astype(int)
+    
+    print("Classification Report:")
+    report = classification_report(y_test, y_pred, target_names=['Normal', 'Fraud'], output_dict=True)
+    print(classification_report(y_test, y_pred, target_names=['Normal', 'Fraud']))
+    print(f"ROC-AUC Score: {roc_auc_score(y_test, y_pred_proba):.4f}")
+    
+    return y_pred, y_pred_proba, report
 
-
-#Plotting training history
-def plot_history(history):
-    plt.figure(figsize=(12, 4))
-
-    # Accuracy
-    plt.subplot(1, 3, 1)
-    plt.plot(history.history['accuracy'], label='Train Acc')
-    plt.plot(history.history['val_accuracy'], label='Val Acc')
-    plt.title('Accuracy')
+def plot_performance(history, y_test, y_pred, y_pred_proba, report):
+    # Plot loss
+    plt.figure(figsize=(10, 5))
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Training and Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
     plt.legend()
-
-    # AUC
-    plt.subplot(1, 3, 2)
-    plt.plot(history.history['auc'], label='Train AUC')
-    plt.plot(history.history['val_auc'], label='Val AUC')
-    plt.title('AUC')
+    plt.grid(True)
+    plt.savefig('loss_curve.png')
+    plt.close()
+    
+    # Plot accuracy
+    plt.figure(figsize=(10, 5))
+    plt.plot(history.history['accuracy'], label='Training Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title('Training and Validation Accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
     plt.legend()
-
-    # Loss
-    plt.subplot(1, 3, 3)
-    plt.plot(history.history['loss'], label='Train Loss')
-    plt.plot(history.history['val_loss'], label='Val Loss')
-    plt.title('Loss')
+    plt.grid(True)
+    plt.savefig('accuracy_curve.png')
+    plt.close()
+    
+    # Plot precision, recall, F1-score for Fraud class
+    fraud_metrics = {
+        'Precision': report['Fraud']['precision'],
+        'Recall': report['Fraud']['recall'],
+        'F1-Score': report['Fraud']['f1-score']
+    }
+    plt.figure(figsize=(8, 6))
+    plt.bar(fraud_metrics.keys(), fraud_metrics.values(), color=['blue', 'green', 'orange'])
+    plt.title('Fraud Class Metrics')
+    plt.ylabel('Score')
+    for i, v in enumerate(fraud_metrics.values()):
+        plt.text(i, v + 0.01, f'{v:.3f}', ha='center')
+    plt.savefig('metrics_bar.png')
+    plt.close()
+    
+    # Plot ROC curve
+    fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+    auc = roc_auc_score(y_test, y_pred_proba)
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {auc:.4f})')
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.title('ROC Curve')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
     plt.legend()
+    plt.grid(True)
+    plt.savefig('roc_curve.png')
+    plt.close()
+    
+    # Plot confusion matrix
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['Normal', 'Fraud'], yticklabels=['Normal', 'Fraud'])
+    plt.title('Confusion Matrix')
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.savefig('confusion_matrix.png')
+    plt.close()
 
-    plt.tight_layout()
-    plt.show()
-
-# Call it after training (Display history)
-plot_history(history)
-
-
+def main():
+    # Load and preprocess data
+    file_path = 'C:\\Users\\yusto\\Desktop\\fraud_data.csv'
+    X_train, X_val, X_test, y_train, y_val, y_test, features = load_and_preprocess_data(file_path)
+    
+    # Train model
+    model, history = train_model(X_train, X_val, y_train, y_val)
+    
+    # Evaluate and plot
+    y_pred, y_pred_proba, report = evaluate_model(model, X_test, y_test)
+    plot_performance(history, y_test, y_pred, y_pred_proba, report)
+    
+    # Save model in .keras format
+    model.save('fraud_detection_model.keras')
+    
+    # Save feature names
+    with open('features.pkl', 'wb') as f:
+        pickle.dump(features, f)
 
 if __name__ == "__main__":
-    print("Loading and preparing data...")
-    (X_train, y_train), (X_test, y_test), scaler = prepare_data('fraud_data.csv')
-    
-    print("Training model...")
-    model, history = train_model(X_train, y_train, X_test, y_test)
-    
-    # Evaluate
-    test_loss, test_accuracy, test_auc = model.evaluate(X_test, y_test)
-    print(f"\nTest accuracy: {test_accuracy:.4f}")
-    print(f"Test AUC: {test_auc:.4f}")
-    
-    # Save model and scaler
-    model.save('fraud_model.keras')
-    with open('scaler.pkl', 'wb') as f:
-        pickle.dump(scaler, f)
-    print("Model and scaler saved")
+    main()
