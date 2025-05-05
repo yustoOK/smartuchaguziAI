@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 
-def generate_training_data(num_samples=1500000, fraud_ratio=0.03):
+def generate_training_data(num_samples=500_000, fraud_ratio=0.03):
     data = []
     
     # Simulate election period (48-hour voting window)
@@ -112,5 +112,9 @@ def generate_training_data(num_samples=1500000, fraud_ratio=0.03):
 if __name__ == "__main__":
     print("Generating data...")
     df = generate_training_data()
-    print("Data saved to fraud_data_improved.csv")
+    print("Data saved to fraud_data.csv")
     print(f"Fraud ratio: {df['label'].mean():.3f}")
+
+
+    #Checking the summary of the data
+    
