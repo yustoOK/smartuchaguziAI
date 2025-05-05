@@ -1,55 +1,136 @@
-Fraud Detection Dataset Description (The whole group should read this)
-======================================================================
+# Metadata for Fraud Detection Dataset
+# University of Dodoma Web-Based Voting System
+# Generated on May 05, 2025
 
-Dataset Size: 1,500,000 samples (We may increase this by incrementing the n_sample number/value)
+## Overview
+This dataset is synthetically generated to train a machine learning model for detecting fraudulent voting behavior in a web-based voting system for University of Dodoma student elections. The dataset simulates voting activities during a 48-hour election period, where users can cast up to 5 votes, each assumed to be for a different position (e.g., President, Vice President). It includes 1,500,000 samples with a fraud prevalence of 3% (~45,000 fraudulent votes) to reflect realistic scenarios where fraud is rare. The data is stored in `fraud_data_improved.csv`.
 
-Features:
-1. time_diff (float): Time difference between consecutive votes in seconds
-   - Normal range: 5-30 seconds
-   - Fraud range: 0.1-3 seconds
-   - Noise: ±10% Gaussian noise
+## Purpose
+The dataset supports the development of a robust fraud detection model to identify anomalous voting patterns in a university election context, accounting for multiple votes per user. It incorporates realistic features, correlated behaviors, and diverse fraud scenarios to ensure the model generalizes to real-world voting data.
 
-2. votes_per_user (int): Number of votes cast by a single user
-   - Normal range: 1-2 votes
-   - Fraud range: 3-10 votes
-   - Noise: ±10% Gaussian noise, minimum 1
+## Data Generation Process
+The dataset is generated using a Python script (`generate_training_data`) with the following characteristics:
+- **Sample Size**: 1,500,000 voting records.
+- **Fraud Ratio**: 3% of samples are labeled as fraudulent (`label=1`).
+- **Election Period**: Simulated over a 48-hour window starting May 1, 2025, 8:00 AM.
+- **Voter IDs**: Unique identifiers in the format `T{year}-03-{number}`, where `year` is 2021–2023, and `number` is a 5-digit code.
+- **Voting Rules**: Users can cast 1–5 votes, each assumed to be for a different position. Normal users stay within this limit; fraudulent users may exceed 5 votes or exhibit rapid voting.
+- **Fraud Scenarios**:
+  - **Bot-driven voting**: Rapid votes (>5) from a single device/IP with short time gaps.
+  - **Coordinated attacks**: Synced votes (>5) across multiple voter IDs with similar timestamps/IPs.
+  - **Proxy voting**: Votes from non-Tanzanian locations, possibly exceeding 5 votes.
+- **Noise**: Variable noise (10–20%) added to numerical features.
+- **Correlations**: `vote_frequency` and `avg_time_between_votes` are inversely related.
+- **Edge Cases**: 5% of samples have randomly flipped `vpn_usage` or `location_flag`.
 
-3. voter_id (string): Unique voter identifier
-   - Format: T[YY]-03-[NNNNN]
-   - YY: Year (21-23)
-   - NNNNN: 5-digit number (00000-99999)
-   - Example: T22-03-06448
+## Features
+The dataset contains 13 features, including temporal, behavioral, and contextual attributes:
 
-4. avg_time_between_votes (float): Average time between user's votes
-   - Normal range: 4-20 seconds
-   - Fraud range: 0.1-2 seconds
-   - Noise: ±10% Gaussian noise, minimum 0.1
+1. **time_diff (float, seconds)**:
+   - Time difference between consecutive votes in a session.
+   - Normal: 5–15 seconds (time to select a candidate).
+   - Fraud: 0.01–5 seconds (rapid voting, especially bots).
+   - Noise: 15% Gaussian noise.
 
-5. vote_frequency (float): Votes per minute
-   - Normal range: 0.1-0.5
-   - Fraud range: 0.8-2.0
-   - Noise: ±10% Gaussian noise, minimum 0.01
+2. **votes_per_user (integer)**:
+   - Number of votes cast by a voter ID, each assumed to be for a different position.
+   - Normal: 1–5.
+   - Fraud: 1–15, often >5.
+   - Noise: 10% Gaussian noise.
 
-6. vpn_usage (int): Whether VPN is used (0 = no, 1 = yes)
-   - Normal: 20% chance of VPN (p=0.2)
-   - Fraud: 70% chance of VPN (p=0.7)
-   - Noise: 5% chance of random flip
+3. **voter_id (string)**:
+   - Unique identifier (e.g., `T21-03-12345`).
+   - Used for tracking, not directly for modeling.
+   - No noise.
 
-7. multiple_logins (int): Number of concurrent logins
-   - Normal range: 1-2
-   - Fraud range: 2-5
-   - Noise: ±10% Gaussian noise, minimum 1
+4. **avg_time_between_votes (float, seconds)**:
+   - Average time between votes for users with multiple votes.
+   - Normal: 5–10 seconds or 0 (single vote).
+   - Fraud: 0.05–3 seconds.
+   - Noise: 15% Gaussian noise.
+   - Correlated: Inversely related to `vote_frequency`.
 
-Labels:
-- 0: Normal voting behavior
-- 1: Potentially fraudulent behavior
+5. **vote_frequency (float, votes/second)**:
+   - Frequency of votes.
+   - Normal: 0.1–0.3 votes/second.
+   - Fraud: 0.5–5.0 votes/second.
+   - Noise: 10% Gaussian noise.
+   - Capped based on `avg_time_between_votes`.
 
-Distribution:
-- Approximately 50% normal, 50% fraud samples
-- Randomly generated with controlled ranges and added noise to simulate real-world variability
+6. **vpn_usage (binary, 0 or 1)**:
+   - Indicates VPN usage.
+   - Normal: 10% chance.
+   - Fraud: 60% chance.
+   - Edge Case: 5% random flip.
 
-Usage:
-- Designed for training a neural network to detect voting fraud
-- Numeric features should be normalized before model input
-- voter_id is used for tracking but encoded numerically (last 5 digits) for ML
-- Noise ensures robustness to legitimate variations (e.g., VPN use from home)
+7. **multiple_logins (integer)**:
+   - Number of login sessions.
+   - Normal: Typically 1.
+   - Fraud: 1–5.
+   - Noise: 10% Gaussian noise.
+
+8. **session_duration (float, seconds)**:
+   - Duration of voting session.
+   - Normal: 60–180 seconds (covers multiple votes).
+   - Fraud: 10–60 seconds.
+   - Noise: 20% Gaussian noise.
+
+9. **location_flag (binary, 0 or 1)**:
+   - Indicates non-Tanzanian location.
+   - Normal: 5% chance.
+   - Fraud: 70% chance.
+   - Edge Case: 5% random flip.
+
+10. **device_id (string)**:
+    - Device identifier (e.g., `device_1234`).
+    - Normal: Large pool (10,000 devices).
+    - Fraud: Smaller pool (1,000 devices) for bots/coordinated attacks.
+
+11. **ip_address (string)**:
+    - Simulated IP (e.g., `192.168.1.1`).
+    - Normal: Large pool (65,000 IPs).
+    - Fraud: Smaller pool (1,000 IPs).
+
+12. **vote_timestamp (string, YYYY-MM-DD HH:MM:SS)**:
+    - Timestamp of vote.
+    - Normal: 8 AM–8 PM.
+    - Fraud: May occur at odd hours (60% chance).
+    - No noise.
+
+13. **label (binary, 0 or 1)**:
+    - 0: Normal vote.
+    - 1: Fraudulent vote (3% of samples).
+
+## Important Notes
+- **Voting Rules**: Users can cast 1–5 votes, each assumed to be for a different position (e.g., President, Vice President). Fraud includes exceeding 5 votes or rapid voting patterns.
+- **Class Imbalance**: 3% fraud ratio requires techniques like SMOTE or class weights.
+- **Feature Correlations**: `vote_frequency` and `avg_time_between_votes` are correlated; `votes_per_user` and `session_duration` reflect multiple votes.
+- **Realism**: Simulates university context with Tanzanian location flags and multiple-vote rules.
+- **Edge Cases**: Random flips ensure challenging cases.
+
+## Usage Recommendations
+1. **Preprocessing**:
+   - Normalize numerical features.
+   - Encode `device_id`, `ip_address` (e.g., target encoding).
+   - Parse `vote_timestamp` into hour/day features.
+   - Drop `voter_id` unless linked to external data.
+
+2. **Feature Selection**:
+   - Prioritize `votes_per_user`, `time_diff`, `session_duration`.
+   - Aggregate `device_id`, `ip_address` for vote counts.
+
+3. **Model Training**:
+   - Use XGBoost, Random Forest, or Neural Networks with imbalanced data techniques.
+
+4. **Validation**:
+   - Check feature distributions and correlations.
+   - Validate with real voting logs if available.
+
+## File Details
+- **File Name**: fraud_data_improved.csv
+- **Format**: CSV
+- **Size**: 1,500,000 rows
+- **Location**: C:\Users\yusto\Desktop\fraud_data_improved.csv
+
+## Contact
+Contact the University of Dodoma IT department for further details.
