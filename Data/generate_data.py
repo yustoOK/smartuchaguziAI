@@ -6,7 +6,7 @@ def generate_training_data(num_samples=100_000, fraud_ratio=0.03):
     data = []
     
     # Simulate election period (48-hour voting window)
-    election_start = datetime(2025, 5, 1, 8, 0)  # May 1, 2025, 8 AM
+    election_start = datetime(2025, 6, 25, 8, 0)  # May 1, 2025, 8 AM
     election_end = election_start + timedelta(hours=48)
     
     for _ in range(num_samples):
