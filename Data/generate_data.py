@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 
-def generate_training_data(num_samples=100_000, fraud_ratio=0.03):
+def generate_training_data(num_samples=1_700_000, fraud_ratio=0.03):
     data = []
     
     # Simulate election period (48-hour voting window)
