@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, roc_auc_score, roc_curve, confusion_matrix
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam
 import pickle
@@ -17,8 +17,8 @@ def load_and_preprocess_data(file_path):
     
     # Select features
     features = [
-        'time_diff', 'votes_per_user', 'avg_time_between_votes', 'vote_frequency',
-        'vpn_usage', 'multiple_logins', 'session_duration', 'location_flag'
+        'time_diff', 'votes_per_user', 'vote_frequency', 'vpn_usage',
+        'multiple_logins', 'session_duration', 'location_flag'
     ]
     X = df[features]
     y = df['label']
@@ -43,15 +43,10 @@ def load_and_preprocess_data(file_path):
 
 def build_model(input_dim):
     model = Sequential([
-        Dense(128, activation='relu', input_dim=input_dim, kernel_regularizer='l2'),
-        BatchNormalization(),
-        Dropout(0.3),
-        Dense(64, activation='relu', kernel_regularizer='l2'),
-        BatchNormalization(),
-        Dropout(0.3),
+        Dense(64, activation='relu', input_dim=input_dim, kernel_regularizer='l2'),
+        Dropout(0.4),
         Dense(32, activation='relu', kernel_regularizer='l2'),
-        BatchNormalization(),
-        Dropout(0.2),
+        Dropout(0.3),
         Dense(1, activation='sigmoid')
     ])
     
@@ -61,7 +56,7 @@ def build_model(input_dim):
     return model
 
 def train_model(X_train, X_val, y_train, y_val):
-    class_weights = {0: 1.0, 1: 33.33}  # 1:33 ratio for 3% fraud
+    class_weights = {0: 1.0, 1: 10.0}  # Reduced weight to test generalization
     
     early_stopping = EarlyStopping(
         monitor='val_loss', patience=10, restore_best_weights=True
@@ -75,7 +70,7 @@ def train_model(X_train, X_val, y_train, y_val):
         X_train, y_train,
         validation_data=(X_val, y_val),
         epochs=100,
-        batch_size=256,
+        batch_size=512,  # Increased for efficiency with 1.5M rows
         class_weight=class_weights,
         callbacks=[early_stopping, lr_scheduler],
         verbose=1
@@ -161,7 +156,7 @@ def plot_performance(history, y_test, y_pred, y_pred_proba, report):
 
 def main():
     # Load and preprocess data
-    file_path = 'C:\\Users\\yusto\\Desktop\\fraud_data.csv'
+    file_path = 'C:\\Users\\yusto\\Desktop\\reduced_datasets.csv'
     X_train, X_val, X_test, y_train, y_val, y_test, features = load_and_preprocess_data(file_path)
     
     # Train model
