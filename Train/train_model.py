@@ -70,7 +70,7 @@ def train_model(X_train, X_val, y_train, y_val):
         X_train, y_train,
         validation_data=(X_val, y_val),
         epochs=100,
-        batch_size=512,  # Increased for efficiency with 1.5M rows
+        batch_size=512,  
         class_weight=class_weights,
         callbacks=[early_stopping, lr_scheduler],
         verbose=1
@@ -126,7 +126,7 @@ def plot_performance(history, y_test, y_pred, y_pred_proba, report):
     plt.ylabel('Score')
     for i, v in enumerate(fraud_metrics.values()):
         plt.text(i, v + 0.01, f'{v:.3f}', ha='center')
-    plt.savefig('metrics_bar.png')
+    plt.savefig('train/metrics_bar.png')
     plt.close()
     
     # Plot ROC curve
@@ -140,7 +140,7 @@ def plot_performance(history, y_test, y_pred, y_pred_proba, report):
     plt.ylabel('True Positive Rate')
     plt.legend()
     plt.grid(True)
-    plt.savefig('roc_curve.png')
+    plt.savefig('train/roc_curve.png')
     plt.close()
     
     # Plot confusion matrix
@@ -151,12 +151,12 @@ def plot_performance(history, y_test, y_pred, y_pred_proba, report):
     plt.title('Confusion Matrix')
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
-    plt.savefig('confusion_matrix.png')
+    plt.savefig('train/confusion_matrix.png')
     plt.close()
 
 def main():
     # Load and preprocess data
-    file_path = 'C:\\Users\\yusto\\Desktop\\reduced_datasets.csv'
+    file_path = 'C:\\Users\\yusto\\Desktop\\fraud_data.csv'
     X_train, X_val, X_test, y_train, y_val, y_test, features = load_and_preprocess_data(file_path)
     
     # Train model
